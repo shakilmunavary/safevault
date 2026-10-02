@@ -51,12 +51,15 @@ Open `http://localhost:8081` in your browser or scan the QR code in **Expo Go**.
 
 ---
 
-## 📦 Building the Android APK
+## 📦 Download Android APK
 
-### Option 1: Download from GitHub Actions
-Every push automatically builds the release APK in the **[GitHub Actions tab](https://github.com/shakilmunavary/safevault/actions)**. You can download `SafeVault-Release-APK` directly to your phone!
+- **📥 Latest Release APK**: [Download `SafeVault-latest.apk`](https://raw.githubusercontent.com/shakilmunavary/safevault/main/apk/SafeVault-latest.apk)
+- **📁 All Versions Folder**: [Browse `apk/` folder](https://github.com/shakilmunavary/safevault/tree/main/apk)
+- **⚡ Automated Builds**: Every commit compiles and updates the APK automatically in [GitHub Actions](https://github.com/shakilmunavary/safevault/actions).
 
-### Option 2: Build Locally via EAS
-```bash
-npx eas-cli build -p android --profile preview
-```
+---
+
+## 📄 License & Copyright
+
+Copyright © 2026 Shakil Ahamed (`shakil.ahamed@gmail.com`). All rights reserved.  
+Licensed under the [MIT License](LICENSE).
