@@ -11,7 +11,6 @@ import {
   PanResponder,
   Platform,
   useWindowDimensions,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -46,14 +45,15 @@ export default function VaultHomeScreen({
   onOpenBackupModal,
   theme,
 }) {
-  const { width } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  // Draggable Left Sidebar Width state (defaults to ~42% of screen width on mobile, 280px on desktop)
-  const defaultWidth = width >= 768 ? 280 : Math.round(width * 0.44);
-  const [sidebarWidth, setSidebarWidth] = useState(defaultWidth);
+  // Top Workspace height (defaults to ~42% of screen height)
+  const defaultTopHeight = Math.round(Math.max(200, Math.min(height * 0.42, height - 200)));
+  const [topPaneHeight, setTopPaneHeight] = useState(defaultTopHeight);
+  const [workspaceHeight, setWorkspaceHeight] = useState(height - 120);
 
-  // Selected Note state (for right-pane content viewer)
+  // Selected Note state (for bottom-pane content viewer)
   const [selectedNoteId, setSelectedNoteId] = useState(null);
 
   // Expanded folders set in tree view
@@ -81,9 +81,6 @@ export default function VaultHomeScreen({
   // Delete folder confirmation state
   const [deleteFolderTarget, setDeleteFolderTarget] = useState(null);
 
-  // Delete note confirmation state
-  const [deleteNoteTarget, setDeleteNoteTarget] = useState(null);
-
   // Active folder
   const activeFolder = folders.find((f) => f.id === selectedFolderId) || folders[0] || null;
 
@@ -101,21 +98,30 @@ export default function VaultHomeScreen({
     }));
   };
 
-  // Draggable Divider PanResponder
+  // Draggable Top/Bottom Splitter PanResponder
+  const startTopHeightRef = useRef(topPaneHeight);
+  const currentTopHeightRef = useRef(topPaneHeight);
+  currentTopHeightRef.current = topPaneHeight;
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        startTopHeightRef.current = currentTopHeightRef.current;
+      },
       onPanResponderMove: (evt, gestureState) => {
-        const newW = Math.max(70, Math.min(width - 70, gestureState.moveX));
-        setSidebarWidth(Math.round(newW));
+        const maxH = Math.max(250, workspaceHeight - 120);
+        const newH = Math.max(120, Math.min(maxH, startTopHeightRef.current + gestureState.dy));
+        setTopPaneHeight(Math.round(newH));
       },
     })
   ).current;
 
-  // Quick resize buttons
-  const snapSidebar = (percentage) => {
-    setSidebarWidth(Math.round(width * percentage));
+  // Quick resize snap buttons
+  const snapTopPane = (percentage) => {
+    const targetH = Math.round(workspaceHeight * percentage);
+    setTopPaneHeight(Math.max(120, Math.min(workspaceHeight - 120, targetH)));
   };
 
   const handleCreateFolder = () => {
@@ -151,15 +157,6 @@ export default function VaultHomeScreen({
     }
   };
 
-  const handleDeleteNoteConfirmed = () => {
-    if (deleteNoteTarget) {
-      // Find note index and remove
-      const updatedNotes = notes.filter((n) => n.id !== deleteNoteTarget.id);
-      setDeleteNoteTarget(null);
-      setSelectedNoteId(null);
-    }
-  };
-
   const handleCopyNoteContent = async () => {
     if (!activeNote) return;
     const text = `${activeNote.title || ''}\n\n${activeNote.content || ''}`.trim();
@@ -183,7 +180,7 @@ export default function VaultHomeScreen({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* 1. Top Navigation Bar with Home button */}
+      {/* 1. Top Navigation Bar with persistent Home button */}
       <TopNavBar
         title="Alavuddin Vault"
         showHome={true}
@@ -198,21 +195,27 @@ export default function VaultHomeScreen({
         theme={theme}
       />
 
-      {/* 2. Main Workspace Split View (Draggable Left Tree + Right Content Reader) */}
-      <View style={styles.workspace}>
-        {/* LEFT TREE PANE: Folders & Files Hierarchy */}
+      {/* 2. Main Workspace Split View (Top Tree + Draggable Handle + Bottom Content Reader) */}
+      <View
+        style={styles.workspace}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 100) setWorkspaceHeight(h);
+        }}
+      >
+        {/* TOP PANE: Folders & Files Hierarchy */}
         <View
           style={[
-            styles.leftSidebar,
+            styles.topPane,
             {
-              width: sidebarWidth,
+              height: topPaneHeight,
               backgroundColor: theme.colors.sidebarBg,
-              borderRightColor: theme.colors.surfaceBorder,
+              borderBottomColor: theme.colors.surfaceBorder,
             },
           ]}
         >
-          {/* Left Header: Alavuddin Vault Root & Action Buttons */}
-          <View style={[styles.sidebarHeader, { borderBottomColor: theme.colors.surfaceBorder }]}>
+          {/* Top Header Toolbar: Title & Action Buttons */}
+          <View style={[styles.topPaneHeader, { borderBottomColor: theme.colors.surfaceBorder }]}>
             <View style={styles.vaultTitleRow}>
               <MaterialCommunityIcons name="shield-lock" size={16} color={theme.colors.primary} />
               <Text style={[styles.vaultTitleText, { color: theme.colors.textPrimary }]} numberOfLines={1}>
@@ -221,7 +224,7 @@ export default function VaultHomeScreen({
             </View>
 
             {/* Actions: + Folder, + Note, and Share/Backup */}
-            <View style={styles.sidebarHeaderBtns}>
+            <View style={styles.topHeaderBtns}>
               <TouchableOpacity
                 style={[styles.smallActionBtn, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}
                 onPress={() => setIsCreateModalOpen(true)}
@@ -261,7 +264,7 @@ export default function VaultHomeScreen({
             <MaterialCommunityIcons name="magnify" size={14} color={theme.colors.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: theme.colors.textPrimary }]}
-              placeholder="Search folders & files..."
+              placeholder="Search folders & encrypted files..."
               placeholderTextColor={theme.colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -276,8 +279,8 @@ export default function VaultHomeScreen({
           {/* Folders & Notes Tree ScrollView */}
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 40 }}
-            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 16 }}
+            showsVerticalScrollIndicator={true}
           >
             {filteredFolders.map((folder) => {
               const isFolderSelected = activeFolder && activeFolder.id === folder.id;
@@ -311,7 +314,7 @@ export default function VaultHomeScreen({
                     >
                       <MaterialCommunityIcons
                         name={isExpanded ? 'chevron-down' : 'chevron-right'}
-                        size={14}
+                        size={15}
                         color={theme.colors.textSecondary}
                       />
                     </TouchableOpacity>
@@ -319,7 +322,7 @@ export default function VaultHomeScreen({
                     {/* Folder Icon */}
                     <MaterialCommunityIcons
                       name={isExpanded ? 'folder-open' : 'folder'}
-                      size={16}
+                      size={17}
                       color={folder.color || theme.colors.folderYellow || '#F3C544'}
                     />
 
@@ -329,7 +332,7 @@ export default function VaultHomeScreen({
                         styles.folderNameText,
                         {
                           color: isFolderSelected ? theme.colors.textPrimary : theme.colors.textSecondary,
-                          fontWeight: isFolderSelected ? '700' : '500',
+                          fontWeight: isFolderSelected ? '700' : '600',
                         },
                       ]}
                       numberOfLines={1}
@@ -354,7 +357,7 @@ export default function VaultHomeScreen({
                       style={styles.folderActionIcon}
                       title="Rename"
                     >
-                      <MaterialCommunityIcons name="pencil-outline" size={13} color={theme.colors.textMuted} />
+                      <MaterialCommunityIcons name="pencil-outline" size={14} color={theme.colors.textMuted} />
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -365,7 +368,7 @@ export default function VaultHomeScreen({
                       style={styles.folderActionIcon}
                       title="Delete"
                     >
-                      <MaterialCommunityIcons name="trash-can-outline" size={13} color={theme.colors.danger} />
+                      <MaterialCommunityIcons name="trash-can-outline" size={14} color={theme.colors.danger} />
                     </TouchableOpacity>
                   </TouchableOpacity>
 
@@ -396,7 +399,7 @@ export default function VaultHomeScreen({
                           >
                             <MaterialCommunityIcons
                               name="file-document-lock-outline"
-                              size={15}
+                              size={16}
                               color={isNoteActive ? theme.colors.primary : theme.colors.textSecondary}
                             />
                             <Text
@@ -404,16 +407,16 @@ export default function VaultHomeScreen({
                                 styles.noteTreeTitle,
                                 {
                                   color: isNoteActive ? theme.colors.textPrimary : theme.colors.textSecondary,
-                                  fontWeight: isNoteActive ? '700' : '400',
+                                  fontWeight: isNoteActive ? '700' : '500',
                                 },
                               ]}
                               numberOfLines={1}
                             >
-                              {noteItem.title || 'Untitled'}
+                              {noteItem.title || 'Untitled Secret'}
                             </Text>
 
                             {noteItem.imageUri && (
-                              <MaterialCommunityIcons name="image" size={12} color={theme.colors.secondary} />
+                              <MaterialCommunityIcons name="image" size={13} color={theme.colors.secondary} />
                             )}
                           </TouchableOpacity>
                         );
@@ -444,40 +447,41 @@ export default function VaultHomeScreen({
             )}
           </ScrollView>
 
-          {/* Preset Width Snap Bar */}
+          {/* Preset Height Snap Bar */}
           <View style={[styles.snapBar, { backgroundColor: theme.colors.headerBg, borderTopColor: theme.colors.surfaceBorder }]}>
-            <TouchableOpacity onPress={() => snapSidebar(0.35)} style={styles.snapBtn}>
-              <Text style={[styles.snapBtnText, { color: theme.colors.textMuted }]}>35%</Text>
+            <Text style={[styles.snapLabel, { color: theme.colors.textMuted }]}>Split:</Text>
+            <TouchableOpacity onPress={() => snapTopPane(0.30)} style={styles.snapBtn}>
+              <Text style={[styles.snapBtnText, { color: theme.colors.textPrimary }]}>30%</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => snapSidebar(0.5)} style={styles.snapBtn}>
-              <Text style={[styles.snapBtnText, { color: theme.colors.textMuted }]}>50%</Text>
+            <TouchableOpacity onPress={() => snapTopPane(0.45)} style={styles.snapBtn}>
+              <Text style={[styles.snapBtnText, { color: theme.colors.textPrimary }]}>45%</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => snapSidebar(0.7)} style={styles.snapBtn}>
-              <Text style={[styles.snapBtnText, { color: theme.colors.textMuted }]}>70%</Text>
+            <TouchableOpacity onPress={() => snapTopPane(0.60)} style={styles.snapBtn}>
+              <Text style={[styles.snapBtnText, { color: theme.colors.textPrimary }]}>60%</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* DRAGGABLE DIVIDER / SPLIT HANDLE */}
+        {/* DRAGGABLE HORIZONTAL DIVIDER / SPLIT HANDLE */}
         <View
           {...panResponder.panHandlers}
           style={[
-            styles.dragDivider,
-            { backgroundColor: theme.colors.surfaceBorder },
+            styles.dragDividerHorizontal,
+            { backgroundColor: theme.colors.surfaceHighlight, borderTopColor: theme.colors.surfaceBorder, borderBottomColor: theme.colors.surfaceBorder },
           ]}
         >
-          <View style={[styles.dragGripIcon, { backgroundColor: theme.colors.textMuted }]} />
+          <View style={[styles.dragGripHandle, { backgroundColor: theme.colors.textSecondary }]} />
         </View>
 
-        {/* RIGHT CONTENT PANE: Document Content Viewer & Actions */}
-        <View style={[styles.rightContentPane, { backgroundColor: theme.colors.surface }]}>
+        {/* BOTTOM PANE: Document Content Viewer & Actions */}
+        <View style={[styles.bottomContentPane, { backgroundColor: theme.colors.surface }]}>
           {activeNote ? (
             <View style={styles.noteViewerContainer}>
               {/* Note Header Toolbar */}
               <View style={[styles.noteViewerHeader, { backgroundColor: theme.colors.headerBg, borderBottomColor: theme.colors.surfaceBorder }]}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <MaterialCommunityIcons name="file-document-lock" size={20} color={theme.colors.primary} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <MaterialCommunityIcons name="file-document-lock" size={18} color={theme.colors.primary} />
                     <Text style={[styles.noteTitleHeader, { color: theme.colors.textPrimary }]} numberOfLines={1}>
                       {activeNote.title || 'Untitled Secret'}
                     </Text>
@@ -498,7 +502,7 @@ export default function VaultHomeScreen({
                   </View>
                 </View>
 
-                {/* Header Action Buttons */}
+                {/* Header Action Buttons: Copy & Edit */}
                 <View style={styles.noteViewerActions}>
                   <TouchableOpacity
                     style={[styles.viewerActionBtn, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}
@@ -508,7 +512,7 @@ export default function VaultHomeScreen({
                   >
                     <MaterialCommunityIcons
                       name={copied ? 'check' : 'content-copy'}
-                      size={16}
+                      size={15}
                       color={copied ? theme.colors.accent : theme.colors.textPrimary}
                     />
                     <Text style={[styles.viewerActionBtnText, { color: copied ? theme.colors.accent : theme.colors.textPrimary }]}>
@@ -522,7 +526,7 @@ export default function VaultHomeScreen({
                     title="Edit Note"
                     activeOpacity={0.8}
                   >
-                    <MaterialCommunityIcons name="pencil" size={15} color="#FFF" />
+                    <MaterialCommunityIcons name="pencil" size={14} color="#FFF" />
                     <Text style={styles.viewerActionBtnPrimaryText}>Edit</Text>
                   </TouchableOpacity>
                 </View>
@@ -533,9 +537,9 @@ export default function VaultHomeScreen({
                 style={styles.noteBodyScroll}
                 contentContainerStyle={[
                   styles.noteBodyContent,
-                  { paddingBottom: Math.max(insets.bottom, 16) + 50 },
+                  { paddingBottom: Math.max(insets.bottom, 16) + 30 },
                 ]}
-                showsVerticalScrollIndicator={false}
+                showsVerticalScrollIndicator={true}
               >
                 {/* Attached Image Preview */}
                 {activeNote.imageUri && (
@@ -558,19 +562,19 @@ export default function VaultHomeScreen({
             </View>
           ) : (
             <View style={styles.noNoteSelectedBox}>
-              <MaterialCommunityIcons name="file-document-outline" size={60} color={theme.colors.surfaceBorder} />
+              <MaterialCommunityIcons name="file-document-outline" size={48} color={theme.colors.surfaceBorder} />
               <Text style={[styles.noNoteTitle, { color: theme.colors.textPrimary }]}>
-                Select a File from the Left Menu
+                Select a File from the Top Tree
               </Text>
               <Text style={[styles.noNoteSubtitle, { color: theme.colors.textSecondary }]}>
-                Click any folder on the left to expand its contents and click a file to read or edit its encrypted text.
+                Click any folder above to expand and select a note to read or edit its content.
               </Text>
 
               <TouchableOpacity
                 style={[styles.createFirstBtn, { backgroundColor: theme.colors.primary }]}
                 onPress={() => onAddNote(activeFolder?.id)}
               >
-                <MaterialCommunityIcons name="plus" size={16} color="#FFF" />
+                <MaterialCommunityIcons name="plus" size={15} color="#FFF" />
                 <Text style={styles.createFirstBtnText}>+ Create New Note</Text>
               </TouchableOpacity>
             </View>
@@ -683,15 +687,19 @@ const styles = StyleSheet.create({
   },
   workspace: {
     flex: 1,
+    flexDirection: 'column',
+  },
+  topPane: {
+    width: '100%',
+    borderBottomWidth: 1,
+    paddingTop: 4,
+  },
+  topPaneHeader: {
     flexDirection: 'row',
-  },
-  leftSidebar: {
-    borderRightWidth: 1,
-    paddingTop: 6,
-  },
-  sidebarHeader: {
-    paddingHorizontal: 10,
-    paddingBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     marginBottom: 6,
   },
@@ -699,26 +707,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 6,
   },
   vaultTitleText: {
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
-  sidebarHeaderBtns: {
+  topHeaderBtns: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   smallActionBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderRadius: 5,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     borderWidth: 1,
     gap: 4,
   },
@@ -727,13 +733,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   smallActionBtnPrimary: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderRadius: 5,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     gap: 4,
   },
   actionBtnLabelPrimary: {
@@ -746,27 +751,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 6,
     borderWidth: 1,
-    marginHorizontal: 8,
+    marginHorizontal: 10,
     marginBottom: 6,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
   },
   searchInput: {
     flex: 1,
     paddingVertical: 4,
-    paddingHorizontal: 4,
-    fontSize: 11,
+    paddingHorizontal: 6,
+    fontSize: 12,
   },
   folderNodeGroup: {
     marginBottom: 2,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
   },
   folderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderRadius: 5,
-    gap: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    gap: 6,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -777,34 +782,35 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   folderNameText: {
-    fontSize: 12,
+    fontSize: 13,
     flex: 1,
   },
   countBadge: {
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 9999,
   },
   countBadgeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
   },
   folderActionIcon: {
-    padding: 2,
+    padding: 3,
+    marginLeft: 2,
   },
   nestedNotesList: {
-    paddingLeft: 22,
-    paddingRight: 4,
-    marginTop: 1,
+    paddingLeft: 24,
+    paddingRight: 6,
+    marginTop: 2,
   },
   noteTreeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    borderRadius: 5,
     gap: 6,
-    marginBottom: 1,
+    marginBottom: 2,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -812,15 +818,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   noteTreeTitle: {
-    fontSize: 11,
+    fontSize: 12,
     flex: 1,
   },
   emptyAddNoteRow: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
   },
   emptyAddNoteText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     fontStyle: 'italic',
   },
@@ -829,37 +835,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noResultsText: {
-    fontSize: 11,
+    fontSize: 12,
   },
   snapBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
     paddingVertical: 4,
     borderTopWidth: 1,
+    gap: 8,
   },
-  snapBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  snapBtnText: {
+  snapLabel: {
     fontSize: 10,
     fontWeight: '600',
   },
-  dragDivider: {
-    width: 10,
+  snapBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(128,128,128,0.15)',
+  },
+  snapBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  dragDividerHorizontal: {
+    height: 16,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    cursor: 'col-resize',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    cursor: 'row-resize',
   },
-  dragGripIcon: {
-    width: 3,
-    height: 30,
+  dragGripHandle: {
+    width: 44,
+    height: 4,
     borderRadius: 2,
-    opacity: 0.6,
+    opacity: 0.7,
   },
-  rightContentPane: {
+  bottomContentPane: {
     flex: 1,
+    width: '100%',
   },
   noteViewerContainer: {
     flex: 1,
@@ -939,7 +957,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   imageCard: {
-    height: 200,
+    height: 180,
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
@@ -968,25 +986,25 @@ const styles = StyleSheet.create({
   },
   contentCard: {
     borderRadius: 8,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
-    minHeight: 250,
+    minHeight: 180,
   },
   contentText: {
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 20,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   noNoteSelectedBox: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
   },
   noNoteTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    marginTop: 12,
+    marginTop: 10,
     marginBottom: 4,
     textAlign: 'center',
   },
@@ -994,7 +1012,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     maxWidth: 280,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   createFirstBtn: {
     flexDirection: 'row',
