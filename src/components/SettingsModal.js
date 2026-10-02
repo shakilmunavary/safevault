@@ -28,12 +28,13 @@ export default function SettingsModal({
   onChangePassword,
   onUpdateRecovery,
   onWipeVault,
+  onOpenBackupModal,
   onClose,
   onHome,
   theme,
 }) {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState('account'); // 'account' | 'themes' | 'recovery' | 'fileinfo'
+  const [activeTab, setActiveTab] = useState('account'); // 'account' | 'themes' | 'backup' | 'recovery' | 'fileinfo'
 
   // Username change state
   const [newUsername, setNewUsername] = useState(currentUsername);
@@ -178,6 +179,18 @@ export default function SettingsModal({
               color={activeTab === 'themes' ? theme.colors.primary : theme.colors.textSecondary}
             />
             <Text style={[styles.tabText, { color: activeTab === 'themes' ? theme.colors.primary : theme.colors.textSecondary }]}>Themes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'backup' && { borderBottomColor: theme.colors.primary }]}
+            onPress={() => setActiveTab('backup')}
+          >
+            <MaterialCommunityIcons
+              name="shield-sync-outline"
+              size={18}
+              color={activeTab === 'backup' ? theme.colors.primary : theme.colors.textSecondary}
+            />
+            <Text style={[styles.tabText, { color: activeTab === 'backup' ? theme.colors.primary : theme.colors.textSecondary }]}>Share/Backup</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -414,12 +427,31 @@ export default function SettingsModal({
                 </Text>
 
                 <TouchableOpacity style={[styles.dangerBtn, { backgroundColor: theme.colors.danger }]} onPress={() => setIsWipeModalVisible(true)}>
-                  <MaterialCommunityIcons name="trash-can" size={18} color="#FFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.dangerBtnText}>Wipe Vault & Reset App</Text>
+          {activeTab === 'backup' && (
+            <View>
+              <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.surfaceBorder }]}>
+                <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>Encrypted Backup & Family Sharing</Text>
+                <Text style={[styles.cardSubtitle, { color: theme.colors.textSecondary }]}>
+                  Export your entire encrypted vault to share with your wife or transfer to another device. Exported files are fully encrypted with AES-256 using a custom sharing password.
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: theme.colors.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
+                  onPress={onOpenBackupModal}
+                >
+                  <MaterialCommunityIcons name="shield-sync" size={18} color="#FFF" />
+                  <Text style={styles.actionBtnText}>Open Encrypted Backup & Share</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
+
+          {/* Copyright Statement */}
+          <View style={{ alignItems: 'center', marginTop: 24, paddingVertical: 10 }}>
+            <Text style={{ fontSize: 11, color: theme.colors.textMuted, textAlign: 'center' }}>
+              © 2026 Shakil Ahamed (shakil.ahamed@gmail.com) • All Rights Reserved
+            </Text>
+          </View>
 
           <View style={{ height: 40 }} />
         </ScrollView>

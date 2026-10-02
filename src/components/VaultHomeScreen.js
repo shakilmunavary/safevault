@@ -43,6 +43,7 @@ export default function VaultHomeScreen({
   onLockVault,
   onOpenSettings,
   onOpenThemeModal,
+  onOpenBackupModal,
   theme,
 }) {
   const { width } = useWindowDimensions();
@@ -219,7 +220,7 @@ export default function VaultHomeScreen({
               </Text>
             </View>
 
-            {/* Actions: + Folder and + Note */}
+            {/* Actions: + Folder, + Note, and Share/Backup */}
             <View style={styles.sidebarHeaderBtns}>
               <TouchableOpacity
                 style={[styles.smallActionBtn, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}
@@ -227,7 +228,7 @@ export default function VaultHomeScreen({
                 title="Create Folder"
                 activeOpacity={0.7}
               >
-                <MaterialCommunityIcons name="folder-plus" size={14} color={theme.colors.folderYellow || '#F3C544'} />
+                <MaterialCommunityIcons name="folder-plus" size={13} color={theme.colors.folderYellow || '#F3C544'} />
                 <Text style={[styles.actionBtnLabel, { color: theme.colors.textPrimary }]}>+ Folder</Text>
               </TouchableOpacity>
 
@@ -237,9 +238,21 @@ export default function VaultHomeScreen({
                 title="Create Secret Note"
                 activeOpacity={0.8}
               >
-                <MaterialCommunityIcons name="plus" size={14} color="#FFF" />
+                <MaterialCommunityIcons name="plus" size={13} color="#FFF" />
                 <Text style={styles.actionBtnLabelPrimary}>+ Note</Text>
               </TouchableOpacity>
+
+              {onOpenBackupModal && (
+                <TouchableOpacity
+                  style={[styles.smallActionBtn, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}
+                  onPress={onOpenBackupModal}
+                  title="Encrypted Share / Backup"
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="share-variant-outline" size={13} color={theme.colors.secondary} />
+                  <Text style={[styles.actionBtnLabel, { color: theme.colors.secondary }]}>Share</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 

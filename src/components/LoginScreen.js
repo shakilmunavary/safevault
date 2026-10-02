@@ -136,6 +136,12 @@ export default function LoginScreen({ onLogin, onForgotPassword, savedUsername, 
           <MaterialCommunityIcons name="database-off" size={14} color={theme.colors.textMuted} />
           <Text style={[styles.footerText, { color: theme.colors.textMuted }]}>100% Offline • No External DB • Direct Flat-File</Text>
         </View>
+
+        <View style={{ alignItems: 'center', marginTop: 12 }}>
+          <Text style={{ fontSize: 11, color: theme.colors.textMuted, textAlign: 'center' }}>
+            © 2026 Shakil Ahamed (shakil.ahamed@gmail.com)
+          </Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

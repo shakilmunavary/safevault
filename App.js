@@ -21,6 +21,7 @@ import VaultHomeScreen from './src/components/VaultHomeScreen';
 import NoteEditorModal from './src/components/NoteEditorModal';
 import SettingsModal from './src/components/SettingsModal';
 import ThemeSelectorModal from './src/components/ThemeSelectorModal';
+import BackupModal from './src/components/BackupModal';
 import { THEMES } from './src/theme';
 
 // Silence developer LogBox warnings on mobile
@@ -45,6 +46,7 @@ export default function App() {
   const [isNoteModalVisible, setIsNoteModalVisible] = useState(false);
   const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
   const [isThemeModalVisible, setIsThemeModalVisible] = useState(false);
+  const [isBackupModalVisible, setIsBackupModalVisible] = useState(false);
 
   // Inactivity / AppState background lock
   const appStateRef = useRef(AppState.currentState);
@@ -377,6 +379,7 @@ export default function App() {
               onLockVault={handleLockVault}
               onOpenSettings={() => setIsSettingsModalVisible(true)}
               onOpenThemeModal={() => setIsThemeModalVisible(true)}
+              onOpenBackupModal={() => setIsBackupModalVisible(true)}
               theme={activeTheme}
             />
 
@@ -410,6 +413,10 @@ export default function App() {
               onChangePassword={handleChangePassword}
               onUpdateRecovery={handleUpdateRecovery}
               onWipeVault={handleWipeVault}
+              onOpenBackupModal={() => {
+                setIsSettingsModalVisible(false);
+                setIsBackupModalVisible(true);
+              }}
               onClose={() => setIsSettingsModalVisible(false)}
               onHome={() => {
                 setIsSettingsModalVisible(false);
@@ -423,6 +430,21 @@ export default function App() {
               currentThemeId={currentThemeId}
               onSelectTheme={handleThemeChange}
               onClose={() => setIsThemeModalVisible(false)}
+              theme={activeTheme}
+            />
+
+            {/* Encrypted Backup & Share Modal (Export to Wife / Import) */}
+            <BackupModal
+              visible={isBackupModalVisible}
+              vaultData={vaultData}
+              onImportComplete={(importedVaultData) => {
+                persistVaultData(importedVaultData);
+                if (importedVaultData.folders && importedVaultData.folders.length > 0) {
+                  setSelectedFolder(importedVaultData.folders[0]);
+                }
+              }}
+              onClose={() => setIsBackupModalVisible(false)}
+              onHome={() => setIsBackupModalVisible(false)}
               theme={activeTheme}
             />
           </>

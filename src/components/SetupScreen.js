@@ -317,6 +317,12 @@ export default function SetupScreen({ onSetupComplete, theme = THEMES.cyber_dark
             {loading ? 'Encrypting & Initializing...' : 'Initialize & Encrypt Vault'}
           </Text>
         </TouchableOpacity>
+
+        <View style={{ alignItems: 'center', marginTop: 16 }}>
+          <Text style={{ fontSize: 11, color: theme.colors.textMuted, textAlign: 'center' }}>
+            © 2026 Shakil Ahamed (shakil.ahamed@gmail.com) • All Rights Reserved
+          </Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

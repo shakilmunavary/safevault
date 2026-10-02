@@ -306,4 +306,63 @@ export const CryptoService = {
       encryptedData,
     };
   },
+
+  // Export full or partial vault encrypted with a custom export password
+  exportVaultEncrypted(dataToExport, exportPassword, customNote = '') {
+    if (!exportPassword || exportPassword.length < 3) {
+      throw new Error('Export password must be at least 3 characters.');
+    }
+    const salt = this.generateSalt();
+    const derivedKey = this.deriveKey(exportPassword, salt);
+
+    const payloadObject = {
+      exportedAt: new Date().toISOString(),
+      note: customNote,
+      folders: dataToExport.folders || [],
+      notes: dataToExport.notes || [],
+    };
+
+    const encryptedPayload = this.encrypt(JSON.stringify(payloadObject), derivedKey);
+
+    const exportPackage = {
+      type: 'ALAVUDDIN_VAULT_ENCRYPTED_EXPORT',
+      version: 1,
+      salt,
+      kdf: 'PBKDF2-SHA256-10000',
+      payload: encryptedPayload,
+    };
+
+    return JSON.stringify(exportPackage, null, 2);
+  },
+
+  // Decrypt an imported encrypted package using the import password
+  importVaultEncrypted(rawExportString, importPassword) {
+    if (!importPassword) {
+      throw new Error('Please enter the decryption password.');
+    }
+
+    let parsedPackage;
+    try {
+      parsedPackage = typeof rawExportString === 'string' ? JSON.parse(rawExportString.trim()) : rawExportString;
+    } catch (e) {
+      throw new Error('Invalid backup format. Ensure you pasted or selected a valid encrypted vault file.');
+    }
+
+    if (!parsedPackage || parsedPackage.type !== 'ALAVUDDIN_VAULT_ENCRYPTED_EXPORT' || !parsedPackage.payload || !parsedPackage.salt) {
+      throw new Error('Incompatible or corrupted backup package.');
+    }
+
+    const derivedKey = this.deriveKey(importPassword, parsedPackage.salt);
+    const decryptedJson = this.decrypt(parsedPackage.payload, derivedKey);
+    if (!decryptedJson) {
+      throw new Error('Incorrect decryption password. Could not decrypt vault data.');
+    }
+
+    try {
+      const data = JSON.parse(decryptedJson);
+      return data;
+    } catch (e) {
+      throw new Error('Corrupted decrypted payload.');
+    }
+  },
 };
