@@ -328,7 +328,7 @@ export default function BackupModal({
                   </View>
 
                   <View style={[styles.statBox, { backgroundColor: theme.colors.surfaceHighlight }]}>
-                    <MaterialCommunityIcons name="file-document-lock" size={20} color={theme.colors.primary} />
+                    <MaterialCommunityIcons name="file-lock" size={20} color={theme.colors.primary} />
                     <Text style={[styles.statNumber, { color: theme.colors.textPrimary }]}>{totalNotes}</Text>
                     <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Notes</Text>
                   </View>

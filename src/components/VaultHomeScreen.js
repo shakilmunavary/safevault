@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,6 +11,7 @@ import {
   PanResponder,
   Platform,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -45,7 +46,7 @@ export default function VaultHomeScreen({
   onOpenBackupModal,
   theme,
 }) {
-  const { height, width } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   // Top Workspace height (defaults to ~42% of screen height)
@@ -53,10 +54,10 @@ export default function VaultHomeScreen({
   const [topPaneHeight, setTopPaneHeight] = useState(defaultTopHeight);
   const [workspaceHeight, setWorkspaceHeight] = useState(height - 120);
 
-  // Selected Note state (for bottom-pane content viewer)
+  // Selected Note state - Starts as NULL on login so NO file is automatically opened!
   const [selectedNoteId, setSelectedNoteId] = useState(null);
 
-  // Expanded folders set in tree view
+  // Expanded folders set in tree view (expanded by default so user sees hierarchy)
   const [expandedFolderIds, setExpandedFolderIds] = useState(() => {
     const initial = {};
     folders.forEach((f) => { initial[f.id] = true; });
@@ -84,11 +85,45 @@ export default function VaultHomeScreen({
   // Active folder
   const activeFolder = folders.find((f) => f.id === selectedFolderId) || folders[0] || null;
 
-  // Selected note object
-  const activeNote = notes.find((n) => n.id === selectedNoteId) ||
-    (activeFolder ? notes.find((n) => n.folderId === activeFolder.id) : null) ||
-    notes[0] ||
-    null;
+  // Active note is ONLY defined if the user explicitly clicked on a note!
+  const activeNote = selectedNoteId ? notes.find((n) => n.id === selectedNoteId) || null : null;
+
+  // Pulsing animation for Alavuddin Vault Welcome graphic
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0.85)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(pulseAnim, {
+            toValue: 1.06,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 1,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0.85,
+            duration: 2200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [pulseAnim, glowAnim]);
 
   // Toggle folder expansion
   const toggleFolderExpand = (fId) => {
@@ -151,7 +186,7 @@ export default function VaultHomeScreen({
     if (deleteFolderTarget) {
       onDeleteFolder(deleteFolderTarget.id);
       setDeleteFolderTarget(null);
-      if (activeNote && activeNote.folderId === deleteFolderTarget.id) {
+      if (selectedNoteId && activeNote?.folderId === deleteFolderTarget.id) {
         setSelectedNoteId(null);
       }
     }
@@ -185,8 +220,8 @@ export default function VaultHomeScreen({
         title="Alavuddin Vault"
         showHome={true}
         onHome={() => {
+          setSelectedNoteId(null); // Return to Alavuddin Vault Welcome showcase!
           if (folders.length > 0) onSelectFolderId(folders[0].id);
-          if (notes.length > 0) setSelectedNoteId(notes[0].id);
           setSearchQuery('');
         }}
         onOpenSettings={onOpenSettings}
@@ -376,7 +411,7 @@ export default function VaultHomeScreen({
                   {isExpanded && (
                     <View style={styles.nestedNotesList}>
                       {folderNotesList.map((noteItem) => {
-                        const isNoteActive = activeNote && activeNote.id === noteItem.id;
+                        const isNoteActive = selectedNoteId === noteItem.id;
 
                         return (
                           <TouchableOpacity
@@ -398,7 +433,7 @@ export default function VaultHomeScreen({
                             activeOpacity={0.7}
                           >
                             <MaterialCommunityIcons
-                              name="file-document-lock-outline"
+                              name="file-lock-outline"
                               size={16}
                               color={isNoteActive ? theme.colors.primary : theme.colors.textSecondary}
                             />
@@ -473,7 +508,7 @@ export default function VaultHomeScreen({
           <View style={[styles.dragGripHandle, { backgroundColor: theme.colors.textSecondary }]} />
         </View>
 
-        {/* BOTTOM PANE: Document Content Viewer & Actions */}
+        {/* BOTTOM PANE: Document Content Viewer OR Alavuddin Vault Welcome Showcase */}
         <View style={[styles.bottomContentPane, { backgroundColor: theme.colors.surface }]}>
           {activeNote ? (
             <View style={styles.noteViewerContainer}>
@@ -481,7 +516,7 @@ export default function VaultHomeScreen({
               <View style={[styles.noteViewerHeader, { backgroundColor: theme.colors.headerBg, borderBottomColor: theme.colors.surfaceBorder }]}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                    <MaterialCommunityIcons name="file-document-lock" size={18} color={theme.colors.primary} />
+                    <MaterialCommunityIcons name="file-lock" size={18} color={theme.colors.primary} />
                     <Text style={[styles.noteTitleHeader, { color: theme.colors.textPrimary }]} numberOfLines={1}>
                       {activeNote.title || 'Untitled Secret'}
                     </Text>
@@ -502,7 +537,7 @@ export default function VaultHomeScreen({
                   </View>
                 </View>
 
-                {/* Header Action Buttons: Copy & Edit */}
+                {/* Header Action Buttons: Copy, Edit, and Close */}
                 <View style={styles.noteViewerActions}>
                   <TouchableOpacity
                     style={[styles.viewerActionBtn, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}
@@ -528,6 +563,15 @@ export default function VaultHomeScreen({
                   >
                     <MaterialCommunityIcons name="pencil" size={14} color="#FFF" />
                     <Text style={styles.viewerActionBtnPrimaryText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.closeViewerBtn, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}
+                    onPress={() => setSelectedNoteId(null)}
+                    title="Close File"
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons name="close" size={16} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -561,23 +605,97 @@ export default function VaultHomeScreen({
               </ScrollView>
             </View>
           ) : (
-            <View style={styles.noNoteSelectedBox}>
-              <MaterialCommunityIcons name="file-document-outline" size={48} color={theme.colors.surfaceBorder} />
-              <Text style={[styles.noNoteTitle, { color: theme.colors.textPrimary }]}>
-                Select a File from the Top Tree
-              </Text>
-              <Text style={[styles.noNoteSubtitle, { color: theme.colors.textSecondary }]}>
-                Click any folder above to expand and select a note to read or edit its content.
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.createFirstBtn, { backgroundColor: theme.colors.primary }]}
-                onPress={() => onAddNote(activeFolder?.id)}
+            /* 🏰 ALAVUDDIN VAULT HOME SHOWCASE (Shown when no file is selected) */
+            <ScrollView
+              style={styles.welcomeScroll}
+              contentContainerStyle={[
+                styles.welcomeContentContainer,
+                { paddingBottom: Math.max(insets.bottom, 16) + 20 },
+              ]}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Animated Glowing Logo / Aladdin Lamp Emblem */}
+              <Animated.View
+                style={[
+                  styles.welcomeLogoWrapper,
+                  {
+                    transform: [{ scale: pulseAnim }],
+                    opacity: glowAnim,
+                  },
+                ]}
               >
-                <MaterialCommunityIcons name="plus" size={15} color="#FFF" />
-                <Text style={styles.createFirstBtnText}>+ Create New Note</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={[styles.glowingEmblemRing, { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryLight }]}>
+                  <Image
+                    source={require('../../assets/logo.png')}
+                    style={styles.alavuddinLogoImg}
+                    resizeMode="contain"
+                  />
+                </View>
+              </Animated.View>
+
+              {/* Title & Slogan */}
+              <View style={styles.welcomeTextGroup}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MaterialCommunityIcons name="shield-lock-outline" size={20} color={theme.colors.primary} />
+                  <Text style={[styles.welcomeMainTitle, { color: theme.colors.textPrimary }]}>
+                    Alavuddin Vault
+                  </Text>
+                </View>
+                <Text style={[styles.welcomeTamilSubtitle, { color: theme.colors.folderYellow || '#F3C544' }]}>
+                  காப்பறை • Zero-Knowledge Store
+                </Text>
+              </View>
+
+              {/* Stats Badge Row */}
+              <View style={styles.welcomeStatsRow}>
+                <View style={[styles.welcomeStatCard, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}>
+                  <MaterialCommunityIcons name="folder" size={16} color={theme.colors.folderYellow || '#F3C544'} />
+                  <Text style={[styles.welcomeStatVal, { color: theme.colors.textPrimary }]}>{folders.length}</Text>
+                  <Text style={[styles.welcomeStatLbl, { color: theme.colors.textSecondary }]}>Folders</Text>
+                </View>
+
+                <View style={[styles.welcomeStatCard, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}>
+                  <MaterialCommunityIcons name="file-lock-outline" size={16} color={theme.colors.primary} />
+                  <Text style={[styles.welcomeStatVal, { color: theme.colors.textPrimary }]}>{notes.length}</Text>
+                  <Text style={[styles.welcomeStatLbl, { color: theme.colors.textSecondary }]}>Secrets</Text>
+                </View>
+
+                <View style={[styles.welcomeStatCard, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}>
+                  <MaterialCommunityIcons name="shield-check" size={16} color={theme.colors.accent} />
+                  <Text style={[styles.welcomeStatVal, { color: theme.colors.textPrimary }]}>AES-256</Text>
+                  <Text style={[styles.welcomeStatLbl, { color: theme.colors.textSecondary }]}>Encrypted</Text>
+                </View>
+              </View>
+
+              {/* Instructions Tip Card */}
+              <View style={[styles.instructionTipCard, { backgroundColor: theme.colors.primaryLight, borderColor: theme.colors.primary }]}>
+                <MaterialCommunityIcons name="gesture-tap" size={18} color={theme.colors.primary} />
+                <Text style={[styles.instructionTipText, { color: theme.colors.textPrimary }]}>
+                  Tap any folder & file in the tree above to open and edit its encrypted contents.
+                </Text>
+              </View>
+
+              {/* Quick Actions Bar */}
+              <View style={styles.quickActionRow}>
+                <TouchableOpacity
+                  style={[styles.quickActionBtn, { backgroundColor: theme.colors.primary }]}
+                  onPress={() => onAddNote(activeFolder?.id)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="plus" size={15} color="#FFF" />
+                  <Text style={styles.quickActionBtnText}>+ New Note</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.quickActionBtnSecondary, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.surfaceBorder }]}
+                  onPress={() => setIsCreateModalOpen(true)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="folder-plus" size={15} color={theme.colors.folderYellow || '#F3C544'} />
+                  <Text style={[styles.quickActionBtnSecondaryText, { color: theme.colors.textPrimary }]}>+ New Folder</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -949,6 +1067,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  closeViewerBtn: {
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   noteBodyScroll: {
     flex: 1,
     padding: 12,
@@ -995,35 +1120,118 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-  noNoteSelectedBox: {
+  // Welcome Showcase Styles
+  welcomeScroll: {
     flex: 1,
+  },
+  welcomeContentContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
-  noNoteTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 10,
-    marginBottom: 4,
-    textAlign: 'center',
+  welcomeLogoWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
-  noNoteSubtitle: {
+  glowingEmblemRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    padding: 8,
+  },
+  alavuddinLogoImg: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+  },
+  welcomeTextGroup: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  welcomeMainTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  welcomeTamilSubtitle: {
     fontSize: 12,
-    textAlign: 'center',
-    maxWidth: 280,
-    marginBottom: 14,
+    fontWeight: '700',
+    marginTop: 2,
   },
-  createFirstBtn: {
+  welcomeStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    width: '100%',
+    marginBottom: 12,
+  },
+  welcomeStatCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 2,
+  },
+  welcomeStatVal: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  welcomeStatLbl: {
+    fontSize: 10,
+  },
+  instructionTipCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: 14,
+    width: '100%',
+  },
+  instructionTipText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  quickActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  quickActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
     borderRadius: 7,
     gap: 5,
   },
-  createFirstBtnText: {
+  quickActionBtnText: {
     color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickActionBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 7,
+    borderWidth: 1,
+    gap: 5,
+  },
+  quickActionBtnSecondaryText: {
     fontSize: 12,
     fontWeight: '700',
   },
