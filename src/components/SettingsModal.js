@@ -427,6 +427,13 @@ export default function SettingsModal({
                 </Text>
 
                 <TouchableOpacity style={[styles.dangerBtn, { backgroundColor: theme.colors.danger }]} onPress={() => setIsWipeModalVisible(true)}>
+                  <MaterialCommunityIcons name="delete-alert" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.dangerBtnText}>Wipe Vault & Reset App</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {activeTab === 'backup' && (
             <View>
               <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.surfaceBorder }]}>
